@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import useSWR from "swr"
 import { SensorCard } from "@/components/dashboard/sensor-card"
 import { SensorChart } from "@/components/dashboard/sensor-chart"
@@ -15,8 +15,8 @@ import type {
   Prediction,
   Alert,
   SensorHistoryPoint,
+  IrrigationStatus,
 } from "@/lib/types"
-import { predict } from "@/lib/ml-rules"
 import { Droplets, Bell, Activity } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -24,47 +24,51 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 export default function DashboardPage() {
   const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null)
 
-  // Detect location on mount
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-        () => setLocation({ lat: 19.43, lon: -99.13 }) // Default: CDMX
+        () => setLocation({ lat: 19.43, lon: -99.13 })
       )
     } else {
       setLocation({ lat: 19.43, lon: -99.13 })
     }
   }, [])
 
-  // Fetch sensor data
+  // Sensores
   const { data: sensorData } = useSWR<{ readings: SensorReading[] }>(
     "/api/sensors",
     fetcher,
     { refreshInterval: POLLING_INTERVAL }
   )
 
-  // Fetch weather data
+  // Clima
   const { data: weatherData } = useSWR<WeatherData>(
     location ? `/api/weather?lat=${location.lat}&lon=${location.lon}` : null,
     fetcher,
     { refreshInterval: 600_000 }
   )
 
-  // Fetch alerts
-  const { data: alertData } = useSWR<{ alerts: Alert[] }>(
-    "/api/alerts",
-    fetcher
+  // ─── Predicción ML real desde FastAPI ─────────────────────
+  // Cada vez que se refresca, guarda la lectura + predicción en SQLite
+  const { data: predData } = useSWR<{ prediction: Prediction }>(
+    location ? `/api/predictions?lat=${location.lat}&lon=${location.lon}` : null,
+    fetcher,
+    { refreshInterval: POLLING_INTERVAL }
   )
+  const prediction = predData?.prediction ?? null
 
-  // Fetch temperature history
+  // Alertas
+  const { data: alertData } = useSWR<{ alerts: Alert[] }>("/api/alerts", fetcher)
+
+  // Riego
+  const { data: irrigationData } = useSWR<IrrigationStatus>("/api/irrigation", fetcher)
+
+  // Historial de temperatura
   const { data: tempHistory } = useSWR<{ history: SensorHistoryPoint[] }>(
     "/api/sensors/history?type=temperature&hours=24",
     fetcher
   )
-
-  // Compute prediction
-  const prediction: Prediction | null =
-    sensorData?.readings ? predict(sensorData.readings, weatherData ?? null) : null
 
   const readings = sensorData?.readings || []
   const activeAlerts = alertData?.alerts?.filter((a) => !a.resolved) || []
@@ -82,19 +86,19 @@ export default function DashboardPage() {
       {/* Top row: Weather + Prediction + Irrigation quick status */}
       <div className="grid gap-4 md:grid-cols-3">
         <WeatherCard weather={weatherData ?? null} loading={!location} />
-        <PredictionCard prediction={prediction} loading={!sensorData} />
+        <PredictionCard prediction={prediction} loading={!predData} />
         <Card className="border-border/50">
           <CardContent className="p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Riego
-                </p>
+                <p className="text-xs font-medium text-muted-foreground">Riego</p>
                 <p className="mt-1 text-lg font-bold text-foreground">
-                  Inactivo
+                  {irrigationData?.active ? "Activo" : "Inactivo"}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Ultimo riego hace 6h
+                  {irrigationData?.lastEvent
+                    ? `Último riego: ${new Date(irrigationData.lastEvent.startTime).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`
+                    : "Sin eventos recientes"}
                 </p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
@@ -104,7 +108,7 @@ export default function DashboardPage() {
             <div className="mt-4 flex items-center gap-2">
               <Activity className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">
-                750 ml consumidos hoy
+                {irrigationData?.todayUsage ?? 0} ml consumidos hoy
               </span>
             </div>
           </CardContent>
@@ -115,20 +119,13 @@ export default function DashboardPage() {
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Sensores</h2>
-          <span className="text-xs text-muted-foreground">
-            Actualizacion cada 30s
-          </span>
+          <span className="text-xs text-muted-foreground">Actualizacion cada 30s</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {SENSOR_ORDER.map((type) => {
             const reading = readings.find((r) => r.type === type)
             return (
-              <SensorCard
-                key={type}
-                type={type}
-                value={reading?.value ?? 0}
-                compact
-              />
+              <SensorCard key={type} type={type} value={reading?.value ?? 0} compact />
             )
           })}
         </div>
@@ -149,9 +146,7 @@ export default function DashboardPage() {
           <CardContent className="p-5">
             <div className="mb-4 flex items-center gap-2">
               <Bell className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold text-foreground">
-                Alertas Recientes
-              </h3>
+              <h3 className="text-sm font-semibold text-foreground">Alertas Recientes</h3>
               {activeAlerts.length > 0 && (
                 <Badge variant="destructive" className="ml-auto text-[10px]">
                   {activeAlerts.length}
@@ -170,9 +165,7 @@ export default function DashboardPage() {
                         : "border-accent/30 bg-accent/5"
                   }`}
                 >
-                  <p className="text-xs font-medium text-foreground">
-                    {alert.message}
-                  </p>
+                  <p className="text-xs font-medium text-foreground">{alert.message}</p>
                   <p className="mt-1 text-[10px] text-muted-foreground">
                     {new Date(alert.timestamp).toLocaleString("es-MX")}
                     {alert.resolved && " - Resuelta"}

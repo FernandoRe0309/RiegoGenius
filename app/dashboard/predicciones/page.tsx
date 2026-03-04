@@ -4,11 +4,9 @@ import { useEffect, useState } from "react"
 import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { PredictionCard } from "@/components/dashboard/prediction-card"
 import { SENSOR_CONFIGS, SENSOR_ORDER, POLLING_INTERVAL } from "@/lib/constants"
-import { predict } from "@/lib/ml-rules"
-import type { SensorReading, WeatherData, Prediction } from "@/lib/types"
+import type { SensorReading, Prediction } from "@/lib/types"
 import { Brain, CheckCircle2, XCircle, Info, TrendingUp, Leaf } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -27,67 +25,84 @@ export default function PrediccionesPage() {
     }
   }, [])
 
-  const { data: sensorData } = useSWR<{ readings: SensorReading[] }>(
-    "/api/sensors",
+  // ─── Predicción ML real + lectura de sensores desde FastAPI ──
+  const { data: predData } = useSWR<{
+    prediction: Prediction
+    sensors: SensorReading[]
+    hasWeather: boolean
+    model: {
+      algorithm: string
+      accuracy: number
+      cv_mean: number
+      n_train_samples: number
+      n_features: number
+      has_real_data: boolean
+      version: string
+    }
+  }>(
+    location ? `/api/predictions?lat=${location.lat}&lon=${location.lon}` : null,
     fetcher,
     { refreshInterval: POLLING_INTERVAL }
   )
 
-  const { data: weatherData } = useSWR<WeatherData>(
-    location ? `/api/weather?lat=${location.lat}&lon=${location.lon}` : null,
-    fetcher,
-    { refreshInterval: 600_000 }
-  )
-
-  const prediction: Prediction | null =
-    sensorData?.readings ? predict(sensorData.readings, weatherData ?? null) : null
-
-  const readings = sensorData?.readings || []
+  const prediction = predData?.prediction ?? null
+  const readings = predData?.sensors ?? []
+  const model = predData?.model
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Predicciones IA</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Recomendaciones del modelo de Machine Learning basadas en sensores y clima
+          Recomendaciones del modelo Random Forest entrenado con scikit-learn
         </p>
       </div>
 
-      {/* Main prediction */}
+      {/* Main prediction + Model info */}
       <div className="grid gap-4 md:grid-cols-2">
-        <PredictionCard prediction={prediction} loading={!sensorData} />
+        <PredictionCard prediction={prediction} loading={!predData} />
 
         <Card className="border-border/50">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <Brain className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold text-foreground">
-                Detalles del Modelo
-              </h3>
+              <h3 className="text-sm font-semibold text-foreground">Detalles del Modelo</h3>
             </div>
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
                 <span className="text-xs text-muted-foreground">Algoritmo</span>
                 <Badge variant="secondary" className="text-[10px]">
-                  Decision Tree
+                  {model?.algorithm ?? "Random Forest"}
                 </Badge>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                <span className="text-xs text-muted-foreground">Precision</span>
-                <span className="text-xs font-medium text-foreground">84%</span>
+                <span className="text-xs text-muted-foreground">Precisión (test)</span>
+                <span className="text-xs font-medium text-foreground">
+                  {model?.accuracy ? `${(model.accuracy * 100).toFixed(1)}%` : "—"}
+                </span>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                <span className="text-xs text-muted-foreground">Datos de entrenamiento</span>
-                <span className="text-xs font-medium text-foreground">500+ registros</span>
+                <span className="text-xs text-muted-foreground">Precisión (CV 5-fold)</span>
+                <span className="text-xs font-medium text-foreground">
+                  {model?.cv_mean ? `${(model.cv_mean * 100).toFixed(1)}%` : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <span className="text-xs text-muted-foreground">Muestras entrenamiento</span>
+                <span className="text-xs font-medium text-foreground">
+                  {model?.n_train_samples?.toLocaleString("es-MX") ?? "—"}
+                </span>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
                 <span className="text-xs text-muted-foreground">Variables de entrada</span>
-                <span className="text-xs font-medium text-foreground">11 features</span>
+                <span className="text-xs font-medium text-foreground">
+                  {model?.n_features ?? 11} features
+                </span>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                <span className="text-xs text-muted-foreground">Fuente de clima</span>
-                <Badge variant="outline" className="text-[10px]">
-                  Open-Meteo API
+                <span className="text-xs text-muted-foreground">Datos reales incluidos</span>
+                <Badge variant={model?.has_real_data ? "default" : "outline"} className="text-[10px]">
+                  {model?.has_real_data ? "Sí" : "Solo sintéticos"}
                 </Badge>
               </div>
             </div>
@@ -108,10 +123,7 @@ export default function PrediccionesPage() {
             <CardContent>
               <div className="flex flex-col gap-2">
                 {prediction.factors.sensor_factors.map((factor, i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-2 rounded-lg bg-muted/50 p-3"
-                  >
+                  <div key={i} className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
                     <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span className="text-xs text-foreground">{factor}</span>
                   </div>
@@ -124,26 +136,23 @@ export default function PrediccionesPage() {
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <TrendingUp className="h-4 w-4 text-info" />
-                Factores Climaticos
+                Factores Climáticos
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-2">
-                {prediction.factors.weather_factors.map((factor, i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-2 rounded-lg bg-info/5 p-3"
-                  >
-                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-info" />
-                    <span className="text-xs text-foreground">{factor}</span>
-                  </div>
-                ))}
-                {prediction.factors.weather_factors.length === 0 && (
-                  <p className="text-xs text-muted-foreground p-3">
-                    Sin datos climaticos disponibles. Las predicciones se basan
-                    unicamente en los sensores.
-                  </p>
-                )}
+                {prediction.factors.weather_factors.length > 0
+                  ? prediction.factors.weather_factors.map((factor, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded-lg bg-info/5 p-3">
+                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-info" />
+                        <span className="text-xs text-foreground">{factor}</span>
+                      </div>
+                    ))
+                  : (
+                      <p className="text-xs text-muted-foreground p-3">
+                        Sin datos climáticos disponibles.
+                      </p>
+                    )}
               </div>
             </CardContent>
           </Card>
@@ -153,9 +162,7 @@ export default function PrediccionesPage() {
       {/* Current sensor values used for prediction */}
       <Card className="border-border/50">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">
-            Valores actuales usados en la prediccion
-          </CardTitle>
+          <CardTitle className="text-sm">Valores actuales usados en la predicción</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -163,8 +170,7 @@ export default function PrediccionesPage() {
               const reading = readings.find((r) => r.type === type)
               const config = SENSOR_CONFIGS[type]
               const value = reading?.value ?? 0
-              const isOptimal =
-                value >= config.optimalMin && value <= config.optimalMax
+              const isOptimal = value >= config.optimalMin && value <= config.optimalMax
 
               return (
                 <div
@@ -175,15 +181,12 @@ export default function PrediccionesPage() {
                       : "border-accent/30 bg-accent/5"
                   }`}
                 >
-                  {isOptimal ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                  ) : (
-                    <XCircle className="h-4 w-4 shrink-0 text-accent" />
-                  )}
+                  {isOptimal
+                    ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                    : <XCircle className="h-4 w-4 shrink-0 text-accent" />
+                  }
                   <div>
-                    <p className="text-xs font-medium text-foreground">
-                      {config.label}
-                    </p>
+                    <p className="text-xs font-medium text-foreground">{config.label}</p>
                     <p className="text-sm font-bold text-foreground">
                       {value.toFixed(1)} {config.unit}
                     </p>
@@ -195,21 +198,19 @@ export default function PrediccionesPage() {
         </CardContent>
       </Card>
 
-      {/* How it works explanation */}
+      {/* How it works */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-5">
           <h3 className="text-sm font-semibold text-foreground mb-2">
-            Como funciona la prediccion
+            Cómo funciona la predicción
           </h3>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            El modelo de Decision Tree fue entrenado con sklearn usando 500+
-            registros sinteticos que simulan condiciones reales del cultivo de
-            jitomate. Combina datos de 5 sensores (temperatura, humedad del aire
-            y suelo, luz, CO2) con datos climaticos de Open-Meteo (temperatura
-            exterior, probabilidad de lluvia, viento, nubosidad y pronostico a
-            24h). Las reglas del arbol se exportaron como JavaScript para que las
-            predicciones se ejecuten directamente en el navegador sin necesidad
-            de un servidor Python.
+            El modelo <strong>Random Forest</strong> (200 árboles) fue entrenado con scikit-learn
+            usando 2,000 registros sintéticos que simulan condiciones reales del cultivo de jitomate.
+            Combina datos de 5 sensores internos con datos climáticos de Open-Meteo (temperatura
+            exterior, probabilidad de lluvia, viento, nubosidad y pronóstico a 24h). Cada predicción
+            se guarda en la base de datos SQLite. El modelo <strong>se reentrena automáticamente</strong>{" "}
+            cada 500 lecturas reales acumuladas, mejorando su precisión con el tiempo.
           </p>
         </CardContent>
       </Card>

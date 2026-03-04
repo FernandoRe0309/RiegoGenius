@@ -1,15 +1,13 @@
-// GET /api/sensors/history?type=temperature&hours=24
-// Historico de sensores. Por defecto datos simulados.
-
+// app/api/sensors/history/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { generateHistory } from "@/lib/mock-data"
-import type { SensorType } from "@/lib/types"
+import { apiGet } from "@/lib/api-proxy"
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl
-  const type = (searchParams.get("type") || "temperature") as SensorType
-  const hours = parseInt(searchParams.get("hours") || "24", 10)
-
-  const history = generateHistory(type, hours)
-  return NextResponse.json({ type, hours, history })
+export async function GET(req: NextRequest) {
+  const sp = req.nextUrl.searchParams
+  const { data, status } = await apiGet("/sensors/history", {
+    sensor_type: sp.get("type") ?? "temperature",
+    hours: sp.get("hours") ?? "24",
+  })
+  // FastAPI devuelve el array directo; el frontend espera { history: [...] }
+  return NextResponse.json({ history: Array.isArray(data) ? data : data.history ?? [] }, { status })
 }
