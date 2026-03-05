@@ -4,7 +4,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  title: "Dashboard",  
 }
 
 export default function DashboardLayout({
