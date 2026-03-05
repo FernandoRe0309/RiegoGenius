@@ -1,17 +1,10 @@
 "use client"
-
 import { Card, CardContent } from "@/components/ui/card"
 import { SENSOR_CONFIGS, SENSOR_ORDER } from "@/lib/constants"
 import { Thermometer, Droplets, Sprout, Sun, Wind } from "lucide-react"
 import { useEffect, useState } from "react"
 
-const ICONS = {
-  Thermometer,
-  Droplets,
-  Sprout,
-  Sun,
-  Wind,
-}
+const ICONS = { Thermometer, Droplets, Sprout, Sun, Wind }
 
 function generateValue(type: string): number {
   const ranges: Record<string, [number, number]> = {
@@ -33,14 +26,15 @@ function formatVal(type: string, val: number): string {
 
 export function SensorsPreview() {
   const [values, setValues] = useState<Record<string, number>>({})
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     const initial: Record<string, number> = {}
     SENSOR_ORDER.forEach((type) => {
       initial[type] = generateValue(type)
     })
     setValues(initial)
-
     const interval = setInterval(() => {
       setValues((prev) => {
         const next = { ...prev }
@@ -51,9 +45,10 @@ export function SensorsPreview() {
         return next
       })
     }, 2000)
-
     return () => clearInterval(interval)
   }, [])
+
+  if (!mounted) return null
 
   return (
     <section className="bg-muted/30 py-20 lg:py-28">
@@ -70,19 +65,13 @@ export function SensorsPreview() {
             actualizan automaticamente.
           </p>
         </div>
-
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {SENSOR_ORDER.map((type) => {
             const config = SENSOR_CONFIGS[type]
-            const IconComponent =
-              ICONS[config.icon as keyof typeof ICONS] || Thermometer
-            const val = values[type] ?? generateValue(type)
-
+            const IconComponent = ICONS[config.icon as keyof typeof ICONS] || Thermometer
+            const val = values[type] ?? 0
             return (
-              <Card
-                key={type}
-                className="border-border/50 bg-card transition-all hover:shadow-md"
-              >
+              <Card key={type} className="border-border/50 bg-card transition-all hover:shadow-md">
                 <CardContent className="flex flex-col items-center gap-3 p-5">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                     <IconComponent className="h-5 w-5 text-primary" />
