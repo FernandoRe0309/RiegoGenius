@@ -7,6 +7,7 @@ import { OpenSourceSection } from "@/components/landing/open-source-section"
 import { CtaSection } from "@/components/landing/cta-section"
 import { Footer } from "@/components/landing/footer"
 
+
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
