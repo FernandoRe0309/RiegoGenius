@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n next,fastapi -c blue,green \"next dev\" \"python run_backend.py\"",
+    "dev": "concurrently -n next,fastapi,arduino -c blue,green,yellow \"next dev\" \"python run_backend.py\" \"python serial_bridge.py\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ."
