@@ -119,11 +119,11 @@ def check_and_irrigate(ser: serial.Serial, reading_id: int):
         urgency         = pred.get("urgency", "none")
         confidence      = pred.get("confidence", 0)
 
-        log.info(f"🤖 ML: irrigar={should_irrigate} urgencia={urgency} confianza={confidence:.0%}")
+        log.info(f" ML: irrigar={should_irrigate} urgencia={urgency} confianza={confidence:.0%}")
 
         # Solo activar riego automático si urgencia es alta
         if urgency == "high" and should_irrigate:
-            log.info("💧 Activando bomba automáticamente (urgencia alta)")
+            log.info( Activando bomba automáticamente (urgencia alta)")
             ser.write(b"RIEGO_ON\n")
 
             # Registrar evento de riego en el API
@@ -148,7 +148,7 @@ def check_and_irrigate(ser: serial.Serial, reading_id: int):
                     json={"active": False},
                     timeout=5
                 )
-                log.info(f"💧 Bomba apagada tras {duration} minutos")
+                log.info(f" Bomba apagada tras {duration} minutos")
 
             threading.Thread(target=stop_pump, daemon=True).start()
 
@@ -171,7 +171,7 @@ def poll_irrigation_commands(ser: serial.Serial):
                 if active != last_state:
                     cmd = b"RIEGO_ON\n" if active else b"RIEGO_OFF\n"
                     ser.write(cmd)
-                    log.info(f"🔁 Comando manual: {'ON' if active else 'OFF'}")
+                    log.info(f" Comando manual: {'ON' if active else 'OFF'}")
                     last_state = active
         except Exception:
             pass
@@ -180,13 +180,13 @@ def poll_irrigation_commands(ser: serial.Serial):
 
 # ── Loop principal ────────────────────────────────────────
 def main():
-    log.info("🌱 RiegoGenius Serial Bridge iniciando…")
+    log.info("RiegoGenius Serial Bridge iniciando…")
 
     # Esperar que FastAPI esté listo
     for i in range(10):
         try:
             requests.get(f"{FASTAPI_URL}/health", timeout=2)
-            log.info(f"✅ FastAPI listo en {FASTAPI_URL}")
+            log.info(f"FastAPI listo en {FASTAPI_URL}")
             break
         except Exception:
             log.info(f"Esperando FastAPI… ({i+1}/10)")
@@ -206,7 +206,7 @@ def main():
     while True:
         try:
             with serial.Serial(port, BAUD_RATE, timeout=2) as ser:
-                log.info(f"✅ Serial conectado: {port}")
+                log.info(f"Serial conectado: {port}")
                 time.sleep(2)  # Esperar reset del Arduino
 
                 # Hilo para comandos manuales del dashboard
