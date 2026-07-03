@@ -86,7 +86,7 @@ def send_reading(data: dict) -> int | None:
         )
         if res.status_code == 201:
             reading_id = res.json().get("id")
-            log.info(f"✅ Lectura guardada (id={reading_id}): "
+            log.info(f" Lectura guardada (id={reading_id}): "
                      f"temp={payload['temperature']}°C "
                      f"suelo={payload['soil_humidity']}% "
                      f"luz={payload['light']:.0f}lux")
