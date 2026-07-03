@@ -294,31 +294,31 @@ def _explain_sensor_factors(f: dict) -> list[str]:
     air  = f.get("air_humidity", 0)
 
     if soil < 35:
-        factors.append(f"⚠️ Humedad del suelo crítica: {soil:.1f}% (óptimo 60-75%)")
+        factors.append(f" Humedad del suelo crítica: {soil:.1f}% (óptimo 60-75%)")
     elif soil < 50:
-        factors.append(f"🌱 Humedad del suelo baja: {soil:.1f}% — se recomienda riego pronto")
+        factors.append(f" Humedad del suelo baja: {soil:.1f}% — se recomienda riego pronto")
     elif soil > 80:
-        factors.append(f"💧 Suelo saturado: {soil:.1f}% — evitar riego")
+        factors.append(f"Suelo saturado: {soil:.1f}% — evitar riego")
     else:
-        factors.append(f"✅ Humedad del suelo óptima: {soil:.1f}%")
+        factors.append(f" Humedad del suelo óptima: {soil:.1f}%")
 
     if temp > 32:
-        factors.append(f"🌡️ Temperatura alta: {temp:.1f}°C — aumenta evapotranspiración")
+        factors.append(f"Temperatura alta: {temp:.1f}°C — aumenta evapotranspiración")
     elif temp < 15:
-        factors.append(f"🌡️ Temperatura baja: {temp:.1f}°C — menor demanda hídrica")
+        factors.append(f"Temperatura baja: {temp:.1f}°C — menor demanda hídrica")
     else:
-        factors.append(f"✅ Temperatura óptima: {temp:.1f}°C")
+        factors.append(f"Temperatura óptima: {temp:.1f}°C")
 
     if co2 > 1500:
-        factors.append(f"🌿 CO₂ elevado: {co2:.0f} ppm — mayor fotosíntesis y consumo de agua")
+        factors.append(f"CO₂ elevado: {co2:.0f} ppm — mayor fotosíntesis y consumo de agua")
     elif co2 < 500:
-        factors.append(f"⚠️ CO₂ bajo: {co2:.0f} ppm — fotosíntesis limitada")
+        factors.append(f" CO₂ bajo: {co2:.0f} ppm — fotosíntesis limitada")
 
     if air < 50:
-        factors.append(f"💨 Humedad ambiental baja: {air:.1f}% — aumenta transpiración foliar")
+        factors.append(f" Humedad ambiental baja: {air:.1f}% — aumenta transpiración foliar")
 
     if light > 50000:
-        factors.append(f"☀️ Radiación intensa: {light:.0f} lux — alta demanda hídrica")
+        factors.append(f" Radiación intensa: {light:.0f} lux — alta demanda hídrica")
 
     return factors[:5]
 
@@ -331,22 +331,22 @@ def _explain_weather_factors(f: dict) -> list[str]:
     t24   = f.get("weather_temp_24h")
 
     if rain is None:
-        return ["ℹ️ Sin datos climáticos — predicción basada solo en sensores"]
+        return ["Sin datos climáticos — predicción basada solo en sensores"]
 
     if rain > 70:
-        factors.append(f"🌧️ Lluvia probable ({rain:.0f}%) — se puede posponer el riego")
+        factors.append(f"Lluvia probable ({rain:.0f}%) — se puede posponer el riego")
     elif rain > 40:
-        factors.append(f"🌦️ Posible lluvia ({rain:.0f}%) — monitorear")
+        factors.append(f"Posible lluvia ({rain:.0f}%) — monitorear")
     else:
-        factors.append(f"☀️ Baja probabilidad de lluvia ({rain:.0f}%)")
+        factors.append(f"Baja probabilidad de lluvia ({rain:.0f}%)")
 
     if wind and wind > 25:
-        factors.append(f"💨 Viento fuerte: {wind:.1f} km/h — evaporación acelerada")
+        factors.append(f"Viento fuerte: {wind:.1f} km/h — evaporación acelerada")
 
     if temp and temp > 30:
-        factors.append(f"🌡️ Temperatura exterior alta: {temp:.1f}°C")
+        factors.append(f"Temperatura exterior alta: {temp:.1f}°C")
 
     if t24 and temp and t24 > temp + 3:
-        factors.append(f"📈 Pronóstico: temperatura subirá a {t24:.1f}°C en 24h")
+        factors.append(f"Pronóstico: temperatura subirá a {t24:.1f}°C en 24h")
 
     return factors[:4]
