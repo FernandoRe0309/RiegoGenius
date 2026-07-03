@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🌱 Iniciando API del invernadero…")
+    logger.info(" Iniciando API del invernadero…")
     create_tables()
-    logger.info("✅ Tablas SQLite creadas / verificadas")
+    logger.info(" Tablas SQLite creadas / verificadas")
     load_model()
-    logger.info("✅ Modelo ML listo")
+    logger.info("Modelo ML listo")
     yield
-    logger.info("👋 Apagando servidor…")
+    logger.info(". Apagando servidor…")
 
 
 app = FastAPI(
